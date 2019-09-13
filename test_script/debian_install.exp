@@ -1,0 +1,94 @@
+#!/usr/bin/expect
+log_file debian_install_log
+
+send_user "Starting install debian package!!\n"
+
+set password "blackfin"
+set send_slow {1 .1}
+set dte-shanghai 10.99.27.23
+
+set cces_version $env(cces_version)
+send_user "cces_version is cces_version $env(cces_version)!\n"
+
+if { [ info exists env(uboot_version) ] } {
+set linux_addin_version $env(uboot_version)
+send_user "linux_addin_version is uboot_version $env(uboot_version)!\n"
+} elseif { [ info exists env(linux_addin_version) ] } {
+set linux_addin_version $env(linux_addin_version)
+send_user "linux_addin_version is linux_addin_version $env(linux_addin_version)!"
+} else {
+send_user "linux_addin_version is not existing!\n"
+exit
+}
+
+spawn su
+sleep .5
+while 1 {
+    expect {
+        -re "\[Pp]assword:" {
+            sleep .5
+            send "$password\r"
+            break
+        }
+        timeout {
+            send_user "Fail to su"
+            break
+        }
+    }
+}
+
+while 1 {
+    expect {
+        "#" {
+            break
+        }
+        timeout {
+            send_user "Fail to su as root"
+            exit
+        }
+    }
+}
+
+set timeout 200
+set su_id $spawn_id
+send -s "cd /home/test/debian_install/installer\r"
+
+# use ![ file exists /opt/analog/cces ] if you don't want cces updated.
+if { [ file exists /opt/analog/cces ] } {
+    send_user "\nNo CCES installed in /opt/analog! Wait for installing...\n"
+
+    send -s "python KitInstaller.py install CCEST-00-$cces_version-R -m \"shanghai\"\r"
+    while 1 {
+        expect {
+            -re "Successfully installed.*Unmounted" {
+                break
+            }
+            -re "Same kit is already installed.*Unmounted" {
+                break
+            }
+            timeout {
+                send_user "Failed to install debian package."
+                break
+            }
+        }
+    }
+}
+
+
+
+send -s "python KitInstaller.py install LNXSW-01-$linux_addin_version-R -m \"shanghai\"\r"
+while 1 {
+    expect {
+        -re "Successfully installed.*Unmounted" {
+             break
+        }
+        -re "Same kit is already installed.*Unmounted" {
+             break
+        }
+        timeout {
+            send_user "Failed to install debian package."
+            break
+        }
+    }
+}
+

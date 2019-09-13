@@ -1,0 +1,123 @@
+#!/bin/sh
+# Script to generate u-boot binaries for release
+
+if [ -e Makefile ] ; then
+	uboot_ver=$(printf 'e:\n\t@echo $(U_BOOT_VERSION)\ninclude Makefile\n' | make --no-print-directory -s -f -)
+else
+	echo "Run this script from inside the u-boot dir"
+	exit 1
+fi
+
+set -e
+
+# Determine number of CPU cores if no default was set
+: ${BUILD_NCPUS:="`getconf _NPROCESSORS_ONLN`"}
+if [ "$BUILD_NCPUS" -gt 1 ]
+then
+	JOBS=-j`expr "$BUILD_NCPUS" + 1`
+else
+	JOBS=""
+fi
+
+MAKE="make -j${jobs} -s"
+
+if [ "${CROSS_COMPILE}" ] ; then
+	MAKE="${MAKE} CROSS_COMPILE=${CROSS_COMPILE}"
+fi
+
+buildit() {
+	local bmode bmodeU suffix
+	local board=$1
+	shift
+
+	allboards="$allboards $board"
+
+	for bmode in "$@" ; do
+		bmodeU=$(echo ${bmode} | tr '[:lower:]' '[:upper:]')
+		printf "${board}: ${bmode}: "
+
+		${MAKE} distclean
+
+		sed -i \
+			-e '/define[[:space:]]*CONFIG_BFIN_BOOT_MODE/s:[[:space:]][^[:space:]]*$: BFIN_BOOT_'${bmodeU}':' \
+			include/configs/${board}.h
+		${MAKE} ${board}
+
+		case ${bmode} in
+			bypass) suffix=".bin";;
+			*) suffix=".ldr";;
+		esac
+		mv u-boot${suffix} ../u-boot-${board}-${bmode}-${ver}${suffix}
+
+		cp arch/blackfin/cpu/init.elf ../u-boot-${board}-init-${ver}.elf
+		cp u-boot ../u-boot-${board}-${ver}.elf
+
+		${MAKE} distclean
+	done
+
+	[ -d .git ] && git checkout include/configs/${board}.h || :
+	[ -d .svn ] && svn revert -q include/configs/${board}.h || :
+}
+
+rm -rf ../RELEASE
+mkdir ../RELEASE
+
+ver=$(sed -e 's:[[:space:]]*(ADI-::' -e 's:)[[:space:]]*::' localversion-adi)
+
+# create a tarball of the source code
+uboot="u-boot-${uboot_ver}-${ver}"
+echo "Creating ${uboot}.tar.bz2"
+if [ -d .git ] ; then
+	git archive --prefix=${uboot}/ trunk > ../RELEASE/${uboot}.tar
+	cd ../RELEASE
+	tar xf ${uboot}.tar
+	bzip2 ${uboot}.tar
+else
+	svn export -q . ../RELEASE/${uboot}
+	cd ../RELEASE
+	tar jcf ${uboot}.tar.bz2 ${uboot}
+fi
+cd ${uboot}
+
+allboards=""
+
+buildit bf506f-ezkit para spi_master uart
+buildit bf518f-ezbrd para spi_master uart
+buildit bf526-ezbrd nand para spi_master uart
+buildit bf527-sdp para spi_master uart
+buildit bf527-ezkit nand para spi_master uart
+buildit bf533-ezkit bypass para
+buildit bf533-stamp bypass para spi_master
+buildit bf538f-ezkit bypass para
+buildit bf537-stamp bypass para spi_master uart
+buildit bf548-ezkit nand para spi_master uart
+buildit bf561-ezkit bypass para
+buildit bf609-ezkit para spi_master rsi_master uart
+
+buildit cm-bf527 para uart
+buildit cm-bf533 bypass para
+buildit cm-bf537e bypass para uart
+buildit cm-bf537u bypass para uart
+buildit cm-bf548 para uart
+buildit cm-bf561 bypass para
+buildit tcm-bf537 bypass para uart
+
+buildit bf537-srv1 spi_master uart
+buildit blackstamp spi_master
+
+cd ..
+rm -rf ${uboot}
+chmod a-x *
+
+# we only release spi-master ldrs, so remove "_master" suffix
+for f in *_master* ; do
+	mv ${f} $(echo ${f} | sed 's:_master::')
+done
+
+# bundle up the boards into one tar each
+for board in $allboards ; do
+	tar jcf u-boot-${board}-${ver}.tar.bz2 u-boot-${board}*
+	find u-boot-${board}* '!' -name '*.tar.bz2' -exec rm -f {} +
+done
+
+du -b *

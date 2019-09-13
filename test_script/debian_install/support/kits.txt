@@ -1,0 +1,1 @@
+install ANDTL-00-1.1.0-R -k w1405071 -m "\\chinusr1\ctse-team-mirror\kitweb" --keep-license --non-default-location

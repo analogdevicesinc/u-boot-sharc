@@ -1,0 +1,105 @@
+#!/usr/bin/expect
+
+log_file stage_svn_commit_log
+
+set pkg_date [ exec date +%Y%m%d:%H%M ]
+set account aditools
+set password 4web.reg
+send_user "\rpkg_date is $pkg_date\r"
+send_user "\rJOB_NAME is $env(JOB_NAME)\r"
+
+if { $argc >= 1} {
+   set package           [lindex $argv 0]
+}
+
+set src_root /home/test/linux-addin
+
+if { [string match "uboot*" $package] } {
+    set manifests_file $src_root/linux/manifests/uboot.xml
+} elseif { [string match "buildroot*" $package] } {
+    set manifests_file $src_root/linux/manifests/linux.xml
+} elseif { [string match "toolchain_arm_none*" $package] } {
+    set manifests_file $src_root/linux/manifests/toolchain_arm_none.xml
+} elseif { [string match "toolchain_arm_linux*" $package] } {
+    set manifests_file $src_root/linux/manifests/toolchain_arm_linux.xml
+} elseif { [string match "openocd*" $package] } {
+    set manifests_file $src_root/linux/manifests/openocd.xml
+} elseif { [string match "gdb*arm-none*" $package] } {
+    set manifests_file $src_root/linux/manifests/arm-none-eabi-gdb.xml
+} elseif { [string match "gdb*arm-linux*" $package] } {
+    set manifests_file $src_root/linux/manifests/arm-linux-gnueabi-gdb.xml
+}
+
+if [ catch {exec sed -i "/generated/s/\[0-9\]\\{8\\}:\[0-9\]\\{4\\}/$pkg_date/g"  $manifests_file} ] {
+        send_user "\nfail to modify xml file\n"
+        send_user "$errorInfo\n"
+        exit
+}
+
+set timeout 35
+spawn /bin/sh
+expect -re "$"
+send "cd $src_root/linux;ls\r"
+expect -re "$"
+send "svn update --username $account --password $password\r"
+sleep .5
+while 1 {
+    expect {
+        -re "$" {
+            sleep .5
+            break
+        }
+        timeout {
+            send_user "Fail to svn diff"
+            break
+        }
+    }
+}
+send "svn info\r"
+sleep .5
+while 1 {
+    expect {
+        -re "Last Changed Date.*$" {
+            sleep .5
+            break
+        }
+        timeout {
+            send_user "Fail to svn diff"
+            break
+        }
+    }
+}
+send "svn diff\r"
+sleep .5
+while 1 {
+    expect {
+        -re "Index.*$" {
+            sleep .5
+            break
+        }
+        timeout {
+            send_user "Fail to svn diff"
+            break
+        }
+    }
+}
+send "svn commit -m \"Update tar pkg date to trigger deb pkg building.\"\r"
+while 1 {
+    expect {
+        -re "Password for .*:" {
+            send "$password\r"
+        }
+        -re "Store password unencrypted" {
+            send "yes\r"
+        }
+        -re "Committed revision (.*)" {
+            set committed_version $expect_out(1,string)
+            send "Committed revision $committed_version\r"
+            break
+        }
+        timeout {
+            send_user "Failed to commit version to svn repository."
+            break
+        }
+    }
+}

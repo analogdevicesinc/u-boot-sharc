@@ -1,0 +1,494 @@
+#!/usr/bin/expect
+#
+# Copyright (C) 2004 Bruce Giese
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2, or (at your option) any
+# later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+#
+#
+
+# general definitions
+set TRUE      1
+set FALSE     0
+set SUCCESS   "success"
+set FAILURE   "failure"
+set WARNING   "warning"
+set source    "$env(source)"
+set send_slow {1 .01}
+set password                "blackfin"
+
+set UBOOT_PROMPT            "bfin|sc #"
+set KERNEL_PROMPT           "root:\[^>].*>|\n/\[/._a-zA-Z0-9]* # "
+
+# Default logfiles contain this core as a unique ID.
+set logcore  [exec date +%Y_%m_%d_%H_%M]
+
+# directories and file locations
+set uboot_scripts_dir       [pwd]
+set user		    "$uboot_scripts_dir/../"
+set log_dir                 "$uboot_scripts_dir/../logs"
+set default_test_dir        "/home/$user"
+set uclinux_dirname         "/home/$user/"
+#set ethtool_path            "$uboot_scripts_dir/test_scripts/ethtool-3"
+
+set uclinux_basename        "uClinux-dist"
+set uclinux_path            "$uclinux_dirname/$uclinux_basename"
+set dxe_dir                 "linux-2.6.x"
+set dxe_dirname             "$uclinux_path/$dxe_dir"
+set dxe_filename            "linux"
+set KERMIT_LOCK_DIR         "/var/lock"
+set tftpboot_dir            "/tftpboot"
+
+# If using a hacked up printer cable to reset the board,
+# then we need to know which port it's attached to
+# else, you don't care which is selected.
+set STANDARD_PARALLEL_PORT     0
+set ALTERNATE_PARALLEL_PORT    1
+set HACKED_PRINTER_CABLE_PORT  $ALTERNATE_PARALLEL_PORT
+
+# Misc
+set ip_subnet               "10.100.4"
+set host_ipaddr             "$ip_subnet.174"
+set target_ipaddr           "$ip_subnet.50"
+set ttydev                  /dev/ttyUSB0
+
+set step_sequence_number    1
+
+# directory and file locations
+set config_loc  "include/config.h"
+set configs_loc  "include/configs"
+set uboot_test_dirname  "$user"
+set uboot_test_loc  "$uboot_test_dirname/"
+set uboot_bin_loc   "$uboot_test_loc/u-boot.bin"
+set uboot_dir  $uboot_test_loc
+
+
+# Hardware definitions (not found in config file)
+set MIN_VCO_MULTIPLIER        1
+set MAX_VCO_MULTIPLIER       63
+set MIN_SCLK_DIVIDER         1
+set MAX_SCLK_DIVIDER         15
+set MIN_CORE_CLOCK           100000000
+set MAX_CORE_CLOCK           500000000
+set MIN_SYS_CLOCK            30000000
+set MAX_SYS_CLOCK            133000000
+
+
+# Set up any directories that don't exist yet.
+proc create_dir_if_needed {dirname} {
+    if { [file exists $dirname] == 0} {
+        send_user "creating $dirname\n"
+        if [catch {exec mkdir -p $dirname}] {
+            send_error "ERROR: Can't create $dirname"
+        }
+    }
+}
+
+create_dir_if_needed $uboot_test_dirname
+create_dir_if_needed $log_dir
+
+###########################################################
+#
+#  Procedures
+#
+
+#  Step
+#
+#  This procedure delineates steps in the testing within the
+#  log file and screen output.
+#
+#
+proc step { message } {
+    global step_sequence_number
+
+    send_user "\n*****************************\n"
+    send_user "STEP $step_sequence_number: $message\n\n"
+    incr step_sequence_number
+}
+
+#
+#  Get the configuration file associated with the given
+#  build of uboot.  NOTE: you must do a make <config>
+#  first, where config is the board specific configuration.
+#
+set get_uboot_config_file_error "ERROR-in-get_uboot_config_file"
+
+proc get_uboot_config_file {uboot_loc} {
+    global config_loc
+    global configs_loc
+    global get_uboot_config_file_error
+
+    set configh "$uboot_loc/$config_loc"
+    set configs "$uboot_loc/$configs_loc"
+
+    log_user 1
+    set timeout 2
+    spawn grep configs $configh
+    expect {
+        -re "configs/(.*\.h)" {
+            set value $expect_out(1,string)
+        }
+        -re "No such file or directory" {
+            send_error "Error: can't find configuration file $configh, did you make ___config uboot yet?"
+            return $get_uboot_config_file_error
+        }
+        timeout {
+            send_error "Error: can't find configuration file $configh, did you make ___config uboot yet?"
+            return $get_uboot_config_file_error
+        }
+    }
+    expect eof
+
+    return "$configs/$value"
+}
+
+
+#
+#  This takes a u-boot configuration parameter name and
+#  returns the value associated with that parameter or
+#  an error indicator.
+#
+set get_uboot_define_error "ERROR-in-get_uboot_define"
+
+proc get_uboot_define { param uboot_loc } {
+    global get_uboot_define_error
+    global get_uboot_config_file_error
+
+    set config_file [get_uboot_config_file $uboot_loc]
+    if { $config_file == $get_uboot_config_file_error} {
+        send_error "Error getting config file\n"
+        return $get_uboot_define_error
+    }
+    set foo "define\[^A-Za-z0-9]$param"
+    spawn grep $foo $config_file
+    expect {
+        -re "define\[^A-Za-z0-9]$param\[ \t\"]+(\[^\t\"\n\r])\[ \t\"]+/" {
+            set value $expect_out(1,string)
+        }
+        -re "define\[^A-Za-z0-9]$param\[ \t\"]+(\[^\t\"\n\r]+)" {
+            set value $expect_out(1,string)
+        }
+        -re "No such file or directory" {
+            send_error "ERROR: can't read config file $config_file\n"
+            return $get_uboot_define_error
+        }
+        timeout {
+            send_error "ERROR: can't read config file $config_file\n"
+            return $get_uboot_define_error
+        }
+        eof {
+            send_error "ERROR: eof found before the expected text\n"
+            return $get_uboot_define_error
+        }
+    }
+    expect eof
+
+    return $value
+}
+
+
+#
+#  Change the value of a u-boot configuration parameter.
+#
+proc set_uboot_define {param new_value uboot_loc} {
+    global get_uboot_define_error
+    global get_uboot_config_file_error
+    global SUCCESS
+    global FAILURE
+
+    set config_file [get_uboot_config_file $uboot_loc]
+    if { $config_file == $get_uboot_config_file_error} {
+        send_error "Error getting config file in set_uboot_define\n"
+        return $FAILURE
+    }
+
+    set old_value [get_uboot_define $param $uboot_loc]
+    if { $old_value == $get_uboot_define_error } {
+        send_error "ERROR: couldn't get old value of param\n"
+        return $FAILURE
+    }
+
+    send_user "changing u-boot $param from $old_value to \"$new_value\"\n"
+    exec sed -e \{s/$param\t*$old_value/$param\t$new_value/\} \
+    $config_file > $config_file.temp
+
+    exec mv $config_file.temp $config_file
+
+    set changed_value [get_uboot_define $param $uboot_loc]
+    if { $changed_value != $new_value } {
+        send_error "ERROR: new value didn't seem to get set correctly\n"
+        return $FAILURE
+    }
+
+    return $SUCCESS
+}
+
+proc start_board_through_jtag {}  {
+
+    global password
+    global TEST_FAIL
+    global TEST_PASS
+    global TEST_INFO
+    global UBOOT_PROMPT
+    global kermit_spawn_id
+    global uboot_scripts_dir
+
+#start test
+spawn /bin/sh
+expect -re  ">"
+send -s  "ps aux| grep openocd | grep -v grep | head -1 \r"
+expect "\r"
+while 1 {
+   expect {
+      -re "\[a-z]\{3\}t +(\[0-9]+) +.*openocd" {
+         set process_id $expect_out(1,string)
+         send_log "\nprocess_id: $process_id \n"
+         break
+        }
+
+     timeout {
+         break
+         }
+     }
+}
+
+if { [ info exists process_id ] } {
+
+set timeout 10
+send "su -\r"
+while 1 {
+    expect {
+        -re "\[pP]assword:" {
+            sleep 1
+            send "$password\r"
+            while 1 {
+                expect {
+                    -re "#" {
+                        break
+                    }
+                    timeout {
+                        send_user "FAIL: log in as root!\n"
+                    }
+                }
+            }
+            break
+        }
+        timeout {
+            send_user "FAIL: run su command!\n"
+        }
+    }
+}
+
+send_log "\nprocess_id: $process_id \n"
+send -s  "kill -9 $process_id\r"
+while 1 {
+         expect {
+         -re "#" {
+                break
+         }
+
+         timeout {
+               break 
+         }
+         }
+}
+}
+
+
+send -s  "ps aux| grep arm-none-eabi-gdb | grep -v grep | head -1 \r"
+expect "\r"
+while 1 {
+   expect {
+      -re "\[a-z]\{3\}t +(\[0-9]+) +.*arm-none-eabi-gdb" {
+         set process_id $expect_out(1,string)
+         send_log "\nprocess_id: $process_id \n"
+         break
+        }
+
+     timeout {
+         break
+         }
+     }
+}
+
+if { [ info exists process_id ] } {
+
+send_log "\nprocess_id: $process_id \n"
+send -s  "kill -9 $process_id\r"
+while 1 {
+         expect {
+         -re "#" {
+                break
+         }
+
+         timeout {
+                break
+         }
+         }
+}
+}
+    spawn /bin/bash
+    set jtag_spawn_id $spawn_id
+    set timeout 100
+    sleep 3
+
+    step "root_spawn_id: run gdbproxy"
+    send "su\r"
+    while 1 {
+        expect {
+            -re "\[pP]assword:" {
+                send "$password\r"
+                while 1 {
+                    expect {
+                        -re "#" {
+                            set jtag_console_result $TEST_PASS
+                            break
+                        }
+                        timeout {
+                            send_user "FAIL: log in as root!\n"
+                            set jtag_console_result $TEST_FAIL
+                            break
+                        }
+                    }
+                }
+                break
+            }
+            timeout {
+                send_user "FAIL: run su command!\n"
+                set jtag_console_result $TEST_FAIL
+                break
+            }
+        }
+    }
+
+
+    if { $jtag_console_result == $TEST_PASS } {
+        send "cd /home/test/openocd/tcl\n"
+
+        send "../src/openocd -f interface/ice1000.cfg -f target/adspsc58x.cfg\r"
+        while 1 {
+            expect {
+                -re "JTAG tap: .* enabled" {
+                    set jtag_console_result $TEST_PASS
+                    break
+                }
+                timeout {
+                    set jtag_console_result $TEST_FAIL
+                    break
+                }
+	       }
+	}
+}
+
+    spawn /bin/bash
+    set gdb_spawn_id $spawn_id
+    set timeout 100
+    expect -re "#"
+    sleep 12
+
+    step "gdb_spawn_id: start gdb"
+
+        send "export PATH=/opt/ARM/arm-none-eabi/bin:\$PATH\n"
+        expect -re "#"
+
+        send "cd $uboot_scripts_dir/../\n"
+        send "arm-none-eabi-gdb u-boot\r"
+        while 1 {
+            expect {
+                -re "This GDB was configured as" {
+                    expect -re "Transfer rate.* bytes/write"
+                    sleep 5
+                    set jtag_console_result $TEST_PASS
+                    break
+                }
+                timeout {
+                    set jtag_console_result $TEST_FAIL
+                    break
+                }
+        }
+        }
+
+        send "\003"
+        while 1 {
+            expect {
+                -re "Reading symbols from.*done" {
+                    set jtag_console_result $TEST_PASS
+                    break
+                }
+                timeout {
+                    set jtag_console_result $TEST_FAIL
+                    break
+                }
+        }
+        }
+
+        expect -re "gdb"
+        send "load u-boot\r"
+        while 1 {
+            expect {
+                -re "Transfer rate.* bytes/write" {
+                    set jtag_console_result $TEST_PASS
+                    break
+                }
+                timeout {
+                    set jtag_console_result $TEST_FAIL
+                    break
+                }
+        }
+        }
+
+        expect -re "gdb"
+        send "monitor arm semihosting disable\r"
+        while 1 {
+            expect {
+                -re "gdb" {
+                    set jtag_console_result $TEST_PASS
+                    break
+                }
+                timeout {
+                    set jtag_console_result $TEST_FAIL
+                    break
+                }
+       }
+       }
+
+        send "c\r"
+        while 1 {
+            expect {
+                -re "Continuing" {
+                    set jtag_console_result $TEST_PASS
+                    break
+                }
+                timeout {
+                    set jtag_console_result $TEST_FAIL
+                    break
+                }
+	}
+	}
+       
+    if { [ info exists kermit_spawn_id ] } { 
+        set spawn_id $kermit_spawn_id
+        sleep 2
+        send -s "\r"
+        expect -re $UBOOT_PROMPT
+        send -s "set ipaddr 10.100.4.50\r"
+        expect -re $UBOOT_PROMPT
+        send -s "set serverip 10.100.4.174\r"
+        expect -re $UBOOT_PROMPT
+        send -s "save\r"
+        expect -re "Erasing.*Writing.*$UBOOT_PROMPT"
+        sleep 1
+    }
+}
+

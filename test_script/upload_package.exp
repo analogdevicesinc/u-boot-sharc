@@ -1,0 +1,103 @@
+#!/usr/bin/expect
+
+log_file upload_package_log
+
+set targetip nwd2cvs1.corp.analog.com
+
+if { $argc >= 1} {
+   set package           [lindex $argv 0]
+}
+
+if { [string match "uboot*" $package] } {
+    set package_dir u-boot-sc58x
+} elseif { [string match "buildroot*" $package] } {
+    set package_dir buildroot-sc58x
+} elseif { [string match "toolchain*" $package] || [string match "gnu*" $package] } {
+    set package_dir toolchain-sc58x
+} elseif { [string match "openocd*" $package] } {
+    set package_dir openocd-sc58x
+} elseif { [string match "gdb*" $package] } {
+    set package_dir gdb-sc58x
+}
+
+set send_slow {1 .1}
+
+set timeout 10
+
+spawn /bin/bash
+
+while (1) {
+        send -s "scp /home/test/$package test@10.99.24.51:\r"
+        expect {
+          -re   "\[Pp]assword:" { }
+                timeout { send_user "Failed first return\n"
+                        break }
+        }
+        send -s "test\r"
+        send -s "\r"
+        expect "$"
+
+        send -s "ssh 10.99.24.51\r"
+        expect {
+          -re   "\[Pp]assword:" { }
+                timeout { send_user "Failed first return\n"
+                        break }
+        }
+        send -s "test\r"
+        send -s "\r"
+        expect ">"
+
+	send -s "ftp $targetip\r"
+	expect {
+	  -re	"\[Nn]ame .*:" { }
+	        timeout { send_user "Failed first return\n"
+			break }
+	}
+
+	send -s "anonymous\r"
+        expect {
+          -re   "\[Pp]assword:" { }
+                timeout { send_user "Failed first return\n"
+                        break }
+        }
+	send -s "Anychar\r"
+        expect {
+                "ftp>" { }
+                timeout { send_user "Failed first return\n"
+                        break }
+        }
+	send -s "cd uploads/$package_dir/\r"
+        expect {
+                "ftp>" { }
+                timeout { send_user "Failed first return\n"
+                        break }
+        }
+	send -s "ls \r"
+        expect {
+                "ftp>" { }
+                timeout { send_user "Failed first return\n"
+                        break }
+        }
+        set timeout 3000
+	send -s "put $package\r"
+        expect {
+                "ftp>" { }
+                timeout { send_user "Failed first return\n"
+                        break }
+        }
+
+	send -s "ls \r"
+        expect {
+                "ftp>" { }
+                timeout { send_user "Failed first return\n"
+                        break }
+        }
+	send -s "bye\r"
+        expect {
+                "Goodbye" { break }
+                timeout { send_user "Failed first return\n"
+                        break }
+        }
+	sleep 2
+}
+log_file

@@ -1,0 +1,234 @@
+#!/bin/bash -x
+
+UBOOT_SCRIPTS=`pwd`
+UBOOT_SRC="$UBOOT_SCRIPTS/.."
+UBOOT_LOG="$UBOOT_SRC/logs"
+WORKSPACE_ROOT=/home/test/workspace
+export cces_version=2.7.0
+export uboot_version=1.3.0
+
+if [ ! -d $WORKSPACE_ROOT/../kitmirror ] ; then
+    mkdir -p $WORKSPACE_ROOT/../kitmirror
+fi
+
+if [ ! -d $WORKSPACE_ROOT/../debian_install ] ; then
+    mkdir $WORKSPACE_ROOT/../debian_install
+fi
+
+if [ ! -d $WORKSPACE_ROOT/../debian_install/installer ] ; then
+   cd $WORKSPACE_ROOT/../debian_install	
+   git clone https://testlab2:Labrat1@bitbucket.analog.com/scm/dte-inf/installer.git
+fi   
+
+cd $WORKSPACE_ROOT/../debian_install/installer
+git pull
+git log -1
+
+cp $UBOOT_SCRIPTS/debian_install.exp $WORKSPACE_ROOT/..
+cd $WORKSPACE_ROOT/..
+./debian_install.exp
+
+install_path=/opt/analog
+export PATH=$install_path/cces/$cces_version/ARM/arm-none-eabi/bin:$install_path/cces-linux-add-in/$uboot_version/ARM/arm-linux-gnueabi/bin:$PATH
+
+
+if [  $# -lt 1 ] ; then
+
+if [ -e "/home/test/host_config.sh" ] ; then
+. /home/test/host_config.sh
+else
+echo "No host_config.sh exists in home dir!"
+exit
+fi
+
+if [ `echo $UBOOT_SCRIPTS |grep deb` ] ; then
+    source=deb
+    echo "##### We are testing prebuilt images from deb packages.#######"
+elif [ `echo $UBOOT_SCRIPTS |grep pkg` ] ; then
+    source=pkg
+    echo "##### We are testing source code from deb packages.#########"
+else 
+    source=src
+    echo "##### We are testing source code from git repository.########"
+fi
+
+export UBOOT_SCRIPTS UBOOT_SRC UBOOT_LOG source
+
+
+TIMESTAMP=`date +%Y_%m_%d_%H_%M`-$BUILD_ID
+if [ $# -gt 0 ] ; then
+TIMESTAMP=$1
+else
+TIMESTAMP=`date +%Y_%m_%d_%H_%M`-$BUILD_ID
+fi
+echo "TIMESTAMP is $TIMESTAMP\n"
+
+if [ $source == "deb" ] || [ $source == "pkg" ] ; then
+
+
+  sleep 5
+  cd $UBOOT_SRC/../
+  rm -rf $NODE_NAME.org
+  mv $NODE_NAME $NODE_NAME.org && ls
+  echo "##### We are uncompressing source code from deb package for $source test.########"
+  tar zxf  $install_path/cces-linux-add-in/$uboot_version/uboot-sc5xx-$uboot_version/src/uboot-sc5xx-$uboot_version.tar.gz
+  mv uboot $NODE_NAME
+
+  cat  $UBOOT_SRC/Version
+
+else
+  export PATH=/opt/ARM/arm-none-eabi/bin:$PATH
+fi
+
+if [ $source == "deb" ] ; then
+  
+  echo "##### We are to copy binary from deb package for $source test.########"
+  cp -ar $install_path/cces-linux-add-in/$uboot_version/uboot-sc5xx-$uboot_version/bin/*  /tftpboot
+  if [ $BOARD_TYPE = "SC589-EZKIT" ] ; then
+  cp /tftpboot/u-boot-sc589-ezkit.bin  /tftpboot/u-boot.bin
+  cp /tftpboot/u-boot-sc589-ezkit.ldr  /tftpboot/u-boot.ldr
+  elif [ $BOARD_TYPE = "SC584-EZKIT" ] ; then
+  cp /tftpboot/u-boot-sc584-ezkit.bin  /tftpboot/u-boot.bin
+  cp /tftpboot/u-boot-sc584-ezkit.ldr  /tftpboot/u-boot.ldr
+  elif [ $BOARD_TYPE = "SC573-EZKIT" ] ; then
+  cp /tftpboot/u-boot-sc573-ezkit.bin  /tftpboot/u-boot.bin
+  cp /tftpboot/u-boot-sc573-ezkit.ldr  /tftpboot/u-boot.ldr
+  elif [ $BOARD_TYPE = "SC589-MINI" ] ; then
+  cp /tftpboot/u-boot-sc589-mini.bin  /tftpboot/u-boot.bin
+  cp /tftpboot/u-boot-sc589-mini.ldr  /tftpboot/u-boot.ldr
+
+  fi
+fi
+
+if [ $BOARD_TYPE = "BF609-EZKIT" ] ; then
+testrounds=5
+elif [ $BOARD_TYPE = "BF527-EZKIT" ] ; then
+testrounds=2
+elif [ $BOARD_TYPE = "SC589-EZKIT" ] || [ $BOARD_TYPE = "SC584-EZKIT" ] || [ $BOARD_TYPE = "SC573-EZKIT" ] || [ $BOARD_TYPE = "SC589-MINI" ] ; then
+testrounds=0
+else
+testrounds=3
+fi
+
+# Create UBOOT_LOG here because in pkg/deb test, there could be no UBOOT_LOG exists.
+if [ ! -d $UBOOT_LOG ] ; then
+  mkdir -p $UBOOT_LOG
+fi
+
+cd $UBOOT_LOG
+rm -f *log test_results uboot.diff /tftpboot/u-boot.bin.* /tftpboot/u-boot.ldr.*
+mv summary lastrun-summary  > /dev/null 2>&1
+
+cp /home/test/reset_board  $UBOOT_SRC/test_script
+# To restore the changes made in last release and sync to the repository.
+cd $UBOOT_SRC
+git checkout .
+
+cd $UBOOT_SCRIPTS
+$UBOOT_SCRIPTS/uboot_misc_test.exp $BOARD_TYPE > /dev/null 2>&1
+
+#Add this line to disable kgdb for watchdog test running.
+if [ $BOARD_TYPE = "BF609-EZKIT" ] ; then
+sed -i  "/bfin_adi_common.h/ a #  define CONFIG_WATCHDOG_TIMEOUT_MSECS 15000" $UBOOT_SRC/include/configs/bf609-ezkit.h
+sed -i  "/bfin_adi_common.h/ a #define CONFIG_HW_WATCHDOG" $UBOOT_SRC/include/configs/bf609-ezkit.h
+sed -i  "/bfin_adi_common.h/ a #undef CONFIG_CMD_KGDB" $UBOOT_SRC/include/configs/bf609-ezkit.h
+
+elif [  `echo $BOARD_TYPE |grep SC5` ] ; then
+sed -i  "N;s/\/\*\(\n#define CONFIG_HW_WATCHDOG\)/\1/;P;D" $UBOOT_SRC/include/configs/sc_adi_common.h
+sed -i  "/CONFIG_WATCHDOG_TIMEOUT_MSECS/{n;d}" $UBOOT_SRC/include/configs/sc_adi_common.h
+fi
+
+
+cd $UBOOT_SCRIPTS
+for TEST_ROUND in `seq 0 $testrounds` ;
+do
+     $UBOOT_SCRIPTS/uboot-test $BOARD_TYPE $TEST_ROUND
+    if [ $? != 2 ] ; then
+        if [ -e /tftpboot/u-boot.bin ]; then
+            mv -f /tftpboot/u-boot.bin /tftpboot/u-boot.bin.$TEST_ROUND
+        fi
+        if [ -e /tftpboot/u-boot.ldr ]; then
+            mv -f /tftpboot/u-boot.ldr /tftpboot/u-boot.ldr.$TEST_ROUND
+        fi
+    else 
+	    exit 2
+    fi
+done
+
+if [ `echo $BOARD_TYPE |grep SC5` ] ; then
+
+if [ $BOARD_TYPE = "SC589-EZKIT" ] ; then
+sed -i "/#define CONFIG_SPI_FLASH_MMAP/s/.*\(#define CONFIG_SPI_FLASH_MMAP\).*/\1/" $UBOOT_SRC/include/configs/sc589-ezkit.h
+elif [ $BOARD_TYPE = "SC584-EZKIT" ] ; then
+sed -i "/#define CONFIG_SPI_FLASH_MMAP/s/.*\(#define CONFIG_SPI_FLASH_MMAP\).*/\1/" $UBOOT_SRC/include/configs/sc584-ezkit.h
+elif [ $BOARD_TYPE = "SC573-EZKIT" ] ; then
+sed -i "/#define CONFIG_SPI_FLASH_MMAP/s/.*\(#define CONFIG_SPI_FLASH_MMAP\).*/\1/" $UBOOT_SRC/include/configs/sc573-ezkit.h
+elif [ $BOARD_TYPE = "SC589-MINI" ] ; then
+sed -i "/#define CONFIG_SPI_FLASH_MMAP/s/.*\(#define CONFIG_SPI_FLASH_MMAP\).*/\1/" $UBOOT_SRC/include/configs/sc589-mini.h
+
+fi
+
+cd $UBOOT_SCRIPTS
+for TEST_ROUND in `seq 0 $testrounds` ;
+do
+     $UBOOT_SCRIPTS/uboot-test $BOARD_TYPE $TEST_ROUND
+    if [ $? != 2 ] ; then
+        if [ -e /tftpboot/u-boot.bin ]; then
+            mv -f /tftpboot/u-boot.bin /tftpboot/u-boot.bin.$TEST_ROUND
+        fi
+        if [ -e /tftpboot/u-boot.ldr ]; then
+            mv -f /tftpboot/u-boot.ldr /tftpboot/u-boot.ldr.$TEST_ROUND
+        fi
+    fi
+done
+
+fi
+#cd $UBOOT_LOG
+#e=`ls *-summary-* | wc -l`
+#if [ $e != 0 ] ; then
+#    cat *-summary-* > summary
+#    svn info $UBOOT_SRC |grep "Revision" >> summary
+#fi
+#
+#$UBOOT_SCRIPTS/compare_uboot_results lastrun-summary  summary > uboot.diff
+#test_status=$?
+#if [ $test_status = 0 ] ; then
+#    echo  "success"  > test_results
+#    cat uboot.diff
+#    # echo  "Don't send email of uboot test."
+#else
+#    echo  "failed" > test_results
+#    echo
+#    cat uboot.diff
+#    cat summary
+#    # echo  "Sent email of uboot test."
+#fi
+
+cd $UBOOT_LOG
+mkdir -p $UBOOT_LOG/$TIMESTAMP
+
+if [ ! -d $UBOOT_SRC/../../../../$source/logs ] ; then
+	mkdir -p $UBOOT_SRC/../../../../$source/logs
+fi
+
+cp -fr *log /tftpboot/u-boot.bin.* /tftpboot/u-boot.ldr.* $UBOOT_LOG/$TIMESTAMP
+cp -f summary $UBOOT_LOG/$TIMESTAMP/summary
+
+if [ $source == "deb" ] || [ $source == "pkg" ] ; then
+cp $UBOOT_SRC/Version   $UBOOT_LOG/$TIMESTAMP	
+mv $WORKSPACE_ROOT/../debian_install_log $UBOOT_LOG/$TIMESTAMP
+fi
+
+$UBOOT_SCRIPTS/convert_test_summary summary $TIMESTAMP 
+echo "$UBOOT_SCRIPTS/convert_test_summary summary $TIMESTAMP $test_status"
+cat result.xml
+
+cp -ar $UBOOT_LOG/$TIMESTAMP $UBOOT_SRC/../../../../$source/logs
+rm -f $UBOOT_SRC/u-boot.bin $UBOOT_SRC/u-boot.ldr
+
+else
+
+    cd $UBOOT_SCRIPTS
+    ./make_uboot_package
+
+fi

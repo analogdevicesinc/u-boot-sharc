@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -x
 # Copyright Analog Devices 2020. All Rights Reserved
 # Written by: David Gibson <David.Gibson@analog.com>
 # reposync: Tool for synchronizing specific branches between two mirrors of a repository
@@ -59,7 +60,14 @@ do
     for curBranch in ${BRANCHES_TO_PUSH}
     do
         echo "    Syncing: ${curBranch}"
-        git checkout -b ${curBranch} origin/${curBranch}
+        if [ `git branch --list --no-color | grep " ${curBranch}\$" | wc -l ` -eq 1 ]
+            then
+                echo "Local branch already exists"
+                git checkout ${curBranch}
+            else
+                echo "No local branch, checking out"
+                git checkout -b ${curBranch} origin/${curBranch}
+            fi
         git push reposync ${curBranch}
     done
 done

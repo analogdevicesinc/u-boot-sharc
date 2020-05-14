@@ -117,7 +117,7 @@
 		"mem=" CONFIG_LINUX_MEMSIZE
 
 #if defined(CONFIG_CMD_NET)
-# define UBOOT_ENV_FILE "u-boot.ldr"
+# define UBOOT_ENV_FILE "u-boot-" CONFIG_SYS_BOARD ".ldr"
 # if (CONFIG_SC_BOOT_MODE == SC_BOOT_SPI_MASTER)
 #  ifndef CONFIG_SPI_IMG_SIZE
 #   define CONFIG_SPI_IMG_SIZE 0x80000

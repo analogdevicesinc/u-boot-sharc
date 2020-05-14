@@ -10,6 +10,7 @@
 #include <netdev.h>
 #include <phy.h>
 #include <asm/io.h>
+#include <asm/gpio.h>
 #include <asm/mach-types.h>
 #include <asm/arch/portmux.h>
 #include <asm/arch/sc58x.h>
@@ -82,9 +83,13 @@ int board_eth_init(bd_t *bis)
 
 	if (CONFIG_DW_PORTS & 1) {
 		gpio_request(GPIO_PB14, "emac0_phy_reset");
-		gpio_direction_output(GPIO_PB14, 1);
-
+		gpio_request(GPIO_PC15, "emac0_phy_pwdn");
+		gpio_direction_output(GPIO_PC15, 1);
+		gpio_direction_output(GPIO_PB14, 0);
 		mdelay(1);
+		gpio_direction_output(GPIO_PB14, 1);
+		mdelay(1);
+
 		writel((readl(REG_PADS0_PCFG0) | 0xc), REG_PADS0_PCFG0);
 
 		static const unsigned short pins[] = P_RGMII0;
@@ -102,10 +107,22 @@ int board_phy_config(struct phy_device *phydev)
 
 	if (CONFIG_DW_PORTS & 1) {
 #ifndef CONFIG_PHY_BCM89810
-		phy_data = phy_read(phydev, MDIO_DEVAD_NONE, 0x12);
+#ifdef CONFIG_PHY_TI
+		phy_data = phy_read(phydev, MDIO_DEVAD_NONE, 0x32);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x32, (1 << 7) | phy_data);
+		int cfg3 = 0;
+		#define MII_DP83867_CFG3    (0x1e)
+		/*
+		 * Pin INT/PWDN on DP83867 should be configured as an Interrupt Output
+		 * instead of a Power-Down Input on ADI SC5XX boards in order to
+		 * prevent the signal interference from other peripherals during they
+		 * are running at the same time.
+		 */
+		cfg3 = phy_read(phydev, MDIO_DEVAD_NONE, MII_DP83867_CFG3);
+		cfg3 |= (1 << 7);
+		phy_write(phydev, MDIO_DEVAD_NONE, MII_DP83867_CFG3, cfg3);
+#endif
 
-		/* enable 3com mode for RGMII */
-		phy_write(phydev, MDIO_DEVAD_NONE, 0x12, (3 << 12) | phy_data);
 #endif
 	}
 

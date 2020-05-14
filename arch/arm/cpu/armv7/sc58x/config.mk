@@ -17,14 +17,14 @@ else
 CREATE_LDR_ENV =
 endif
 
-ALL-y += u-boot.ldr
+ALL-y += u-boot.ldr u-boot-$(CONFIG_SYS_BOARD).ldr
 
 LDR_FLAGS-y :=
 
 LDR_FLAGS += --bcode=$(CONFIG_SC_BOOT_MODE)
 LDR_FLAGS += --use-vmas
 ifneq ($(CONFIG_SC58X_CHAIN_BOOT),y)
-LDR_FLAGS += --initcode $(CPUDIR)/$(SOC)/init
+LDR_FLAGS += --initcode $(CPUDIR)/$(SOC)/init-$(CONFIG_SYS_BOARD)
 endif
 
 ifneq ($(CONFIG_SC_BOOT_MODE),SC_BOOT_UART)

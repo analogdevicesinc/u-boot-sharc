@@ -5,14 +5,6 @@
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
-/* Pull in the current config to define the default environment */
-#ifndef __ASSEMBLY__
-#define __ASSEMBLY__ /* get only #defines from config.h */
-#include <config.h>
-#undef	__ASSEMBLY__
-#else
-#include <config.h>
-#endif
 
 /*
  * To build the utility with the static configuration

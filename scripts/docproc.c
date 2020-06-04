@@ -113,7 +113,11 @@ static void exec_kernel_doc(char **svec)
 	char real_filename[PATH_MAX + 1];
 	/* Make sure output generated so far are flushed */
 	fflush(stdout);
+#ifdef __NOMMU__
+	switch (pid=vfork()) {
+#else
 	switch (pid=fork()) {
+#endif
 		case -1:
 			perror("fork");
 			exit(1);
@@ -125,7 +129,11 @@ static void exec_kernel_doc(char **svec)
 			execvp(real_filename, svec);
 			fprintf(stderr, "exec ");
 			perror(real_filename);
+#ifdef __NOMMU__
+			_exit(1);
+#else
 			exit(1);
+#endif
 		default:
 			waitpid(pid, &ret ,0);
 	}
@@ -372,7 +380,11 @@ static void find_all_symbols(char *filename)
 		exit(1);
 	}
 
+#ifdef __NOMMU__
+	switch (pid=vfork()) {
+#else
 	switch (pid=fork()) {
+#endif
 		case -1:
 			perror("fork");
 			exit(1);
@@ -386,7 +398,11 @@ static void find_all_symbols(char *filename)
 			execvp(real_filename, vec);
 			fprintf(stderr, "exec ");
 			perror(real_filename);
+#ifdef __NOMMU__
+			_exit(1);
+#else
 			exit(1);
+#endif
 		default:
 			close(pipefd[1]);
 			data = malloc(4096);

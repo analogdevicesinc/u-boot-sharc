@@ -822,18 +822,6 @@ u-boot.bin: u-boot FORCE
 	$(call DO_STATIC_RELA,$<,$@,$(CONFIG_SYS_TEXT_BASE))
 	$(BOARD_SIZE_CHECK)
 
-u-boot.ldr:	u-boot
-		$(CREATE_LDR_ENV)
-		$(LDR) -T $(CONFIG_CPU) -c $@ $< $(LDR_FLAGS)
-		$(BOARD_SIZE_CHECK)
-
-OBJCOPYFLAGS_u-boot.ldr.hex := -I binary -O ihex
-
-OBJCOPYFLAGS_u-boot.ldr.srec := -I binary -O srec
-
-u-boot.ldr.hex u-boot.ldr.srec: u-boot.ldr FORCE
-	$(call if_changed,objcopy)
-
 #
 # U-Boot entry point, needed for booting of full-blown U-Boot
 # from the SPL U-Boot version.
@@ -1192,9 +1180,9 @@ u-boot.lds: $(LDSCRIPT) prepare FORCE
 
 ifdef_any_of = $(filter-out undefined,$(foreach v,$(1),$(origin $(v))))
 ifneq ($(call ifdef_any_of,CONFIG_SC58X CONFIG_SC57X),)
-RENAME_FILES += u-boot u-boot.bin u-boot.ldr u-boot.srec u-boot.lds u-boot.map
+RENAME_FILES += u-boot u-boot.bin u-boot.srec u-boot.lds u-boot.map
 
-u-boot-$(CONFIG_SYS_BOARD).ldr: $(ALL-y)
+u-boot-$(CONFIG_SYS_BOARD).bin: $(ALL-y)
 	@$(foreach file,$(RENAME_FILES),\
 		mv $(file) $(subst u-boot, u-boot-$(CONFIG_SYS_BOARD), $(file));)
 endif

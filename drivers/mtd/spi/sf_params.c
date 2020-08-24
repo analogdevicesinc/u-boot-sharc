@@ -35,10 +35,7 @@ const struct spi_flash_params spi_flash_params_table[] = {
 	{"GD25LQ32",	   0xc86016, 0x0,	64 * 1024,    64, RD_NORM,		    SECT_4K},
 #endif
 #ifdef CONFIG_SPI_FLASH_ISSI            /* ISSI */
-	{"IS25LP032",      0x9d6016, 0x0,	64 * 1024,    64,  RD_NORM,			0},
-	{"IS25LP064",      0x9d6017, 0x0,	64 * 1024,   128,  RD_NORM,			0},
-	{"IS25LP128",      0x9d6018, 0x0,	64 * 1024,   256,  RD_NORM,			0},
-	{"IS25LP512",      0x9d601a, 0x0,	64 * 1024,   1024, RD_NORM,			0},
+	{"IS25LP512",      0x9d601a, 0x0,	64 * 1024,   1024, RD_FULL,			SECT_4K},
 #endif
 #ifdef CONFIG_SPI_FLASH_MACRONIX	/* MACRONIX */
 	{"MX25L2006E",	   0xc22012, 0x0,	64 * 1024,     4, RD_NORM,			  0},

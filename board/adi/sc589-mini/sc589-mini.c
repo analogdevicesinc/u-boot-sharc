@@ -143,4 +143,81 @@ int board_init(void)
 
 	return 0;
 }
+#ifdef CONFIG_SPL_BUILD
+#include <common.h>
+#include <asm/io.h>
+#include <spl.h>
+#include <asm/spl.h>
+#include <environment.h>
+#ifdef CONFIG_SPL_BOARD_INIT
+void spl_board_init(void)
+{
+	board_init();
+}
+#endif
 
+void board_init_f(ulong dummy)
+{
+	/* Clear the BSS. */
+	memset(__bss_start, 0, __bss_end - __bss_start);
+
+	/* Set global data pointer. */
+	gd = &gdata;
+
+	preloader_console_init();
+	board_init_r(NULL, 0);
+}
+
+u32 spl_boot_device(void)
+{
+	/* Currently we only support SPI nor boot*/
+#if defined(CONFIG_SPL_SPI_LOAD)
+#if SPL_VERBOSE
+	puts("SPI Boot\n");
+#endif
+	return BOOT_DEVICE_SPI;
+#endif
+}
+
+#ifdef CONFIG_SPL_OS_BOOT
+enum e_bootmode {
+	e_boot_os,
+	e_boot_uboot
+};
+
+int spl_start_uboot(void)
+{
+	int ret;
+	int bootmode = e_boot_os;
+
+	/*
+	 * PB1 PF_00 selects SPL bootmode:
+	 * 0: boot OS
+	 * 1: (button pressed) boot uboot
+	 * if error accessing gpio boot U-Boot
+	 *
+	 */
+	ret = gpio_request(SC5XX_SPL_OS_BOOT_KEY, "spl bootmode");
+	if (ret) {
+		bootmode = e_boot_uboot;
+	} else {
+		ret = gpio_direction_input(SC5XX_SPL_OS_BOOT_KEY);
+		if (ret) {
+			bootmode = e_boot_uboot;
+		} else {
+			ret = gpio_get_value(SC5XX_SPL_OS_BOOT_KEY);
+			if (ret == 1)
+				bootmode = e_boot_uboot;
+		}
+	}
+
+#if SPI_VERBOSE
+	if (bootmode == e_boot_uboot)
+		printf("Starting U-Boot\n");
+	else
+		printf("Starting OS\n");
+#endif
+	return bootmode;
+}
+#endif
+#endif

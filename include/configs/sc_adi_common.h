@@ -201,6 +201,9 @@
 		__stringify(CONFIG_ENV_SPI_MAX_HZ) ";" \
 		"sf erase " __stringify(CONFIG_SYS_SPI_KERNEL_OFFS) " +${filesize};" \
 		"sf write ${loadaddr} " __stringify(CONFIG_SYS_SPI_KERNEL_OFFS) " ${filesize};" \
+		"tftp ${dtbaddr} ${dtbfile};" \
+		"sf erase " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " +${filesize};" \
+		"sf write ${dtbaddr} " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " ${filesize};" \
 		"tftp ${initramaddr} ${initramfile};" \
 		"sf erase " __stringify(CONFIG_SYS_SPI_INITRAM_OFFS) " +${filesize};" \
 		"sf write ${initramaddr} " __stringify(CONFIG_SYS_SPI_INITRAM_OFFS) " ${filesize}"
@@ -270,6 +273,7 @@
 		__stringify(CONFIG_SC_BOOT_SPI_SSEL) " " \
 		__stringify(CONFIG_ENV_SPI_MAX_HZ) ";" \
 		"sf read  ${loadaddr} " __stringify(CONFIG_SYS_SPI_KERNEL_OFFS) " " "0x500000;" \
+		"sf read  ${dtbaddr} " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " " __stringify(CONFIG_SYS_SPI_DTB_SIZE) ";" \
 		"sf read  ${initramaddr} " __stringify(CONFIG_SYS_SPI_INITRAM_OFFS) " " "0x500000;" \
 		"run ramargs;" \
 		"run addip;" \

@@ -184,16 +184,12 @@
 #   define UBOOT_SPL_EXPORT \
 		"tftp ${loadaddr} ${ramfile};" \
 		"tftp ${dtbaddr} ${dtbfile};" \
-		"tftp ${initramaddr} ${initramfile};" \
 		"sf probe " __stringify(CONFIG_SC_BOOT_SPI_BUS) ":" \
 		__stringify(CONFIG_SC_BOOT_SPI_SSEL) " " \
 		__stringify(CONFIG_ENV_SPI_MAX_HZ) ";" \
 		"sf erase " __stringify(CONFIG_SYS_SPI_ARGS_OFFS) " " \
 		__stringify(CONFIG_SYS_SPI_ARGS_SIZE) ";" \
-		"spl export fdt ${loadaddr} ${initramaddr} ${dtbaddr};" \
-		"sf write " __stringify(CONFIG_SYS_SPL_ARGS_ADDR) " " \
-		__stringify(CONFIG_SYS_SPI_ARGS_OFFS) " " \
-		__stringify(CONFIG_SYS_SPI_ARGS_SIZE)
+		"spl export fdt ${loadaddr} - ${dtbaddr};"
 #   define KERNEL_IMAGE_UPDATE \
 		"tftp ${loadaddr} ${ramfile};" \
 		"sf probe " __stringify(CONFIG_SC_BOOT_SPI_BUS) ":" \
@@ -203,10 +199,7 @@
 		"sf write ${loadaddr} " __stringify(CONFIG_SYS_SPI_KERNEL_OFFS) " ${filesize};" \
 		"tftp ${dtbaddr} ${dtbfile};" \
 		"sf erase " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " +${filesize};" \
-		"sf write ${dtbaddr} " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " ${filesize};" \
-		"tftp ${initramaddr} ${initramfile};" \
-		"sf erase " __stringify(CONFIG_SYS_SPI_INITRAM_OFFS) " +${filesize};" \
-		"sf write ${initramaddr} " __stringify(CONFIG_SYS_SPI_INITRAM_OFFS) " ${filesize}"
+		"sf write ${dtbaddr} " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " ${filesize};"
 
 
 #  else
@@ -262,22 +255,20 @@
 	"ramboot=" \
 		"tftp ${loadaddr} ${ramfile};" \
 		"tftp ${dtbaddr} ${dtbfile};" \
-		"tftp ${initramaddr} ${initramfile};" \
 		"run ramargs;" \
 		"run addip;" \
-		"bootm ${loadaddr} ${initramaddr} ${dtbaddr}" \
+		"bootm ${loadaddr} - ${dtbaddr}" \
 		"\0" \
 	\
 	"norboot=" \
 		"sf probe " __stringify(CONFIG_SC_BOOT_SPI_BUS) ":" \
 		__stringify(CONFIG_SC_BOOT_SPI_SSEL) " " \
 		__stringify(CONFIG_ENV_SPI_MAX_HZ) ";" \
-		"sf read  ${loadaddr} " __stringify(CONFIG_SYS_SPI_KERNEL_OFFS) " " "0x500000;" \
+		"sf read  ${loadaddr} " __stringify(CONFIG_SYS_SPI_KERNEL_OFFS) " " "0xa00000;" \
 		"sf read  ${dtbaddr} " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " " __stringify(CONFIG_SYS_SPI_DTB_SIZE) ";" \
-		"sf read  ${initramaddr} " __stringify(CONFIG_SYS_SPI_INITRAM_OFFS) " " "0x500000;" \
 		"run ramargs;" \
 		"run addip;" \
-		"bootm ${loadaddr} ${initramaddr} ${dtbaddr}" \
+		"bootm ${loadaddr} - ${dtbaddr}" \
 		"\0" \
 	\
 	"sdcardboot=" \
@@ -308,6 +299,11 @@
 	"splexport=" \
 		"run splargs;" \
 		UBOOT_SPL_EXPORT \
+		"\0" \
+	"splargs_update=" \
+		"sf write " __stringify(CONFIG_SYS_SPL_ARGS_ADDR) " " \
+		__stringify(CONFIG_SYS_SPI_ARGS_OFFS) " " \
+		__stringify(CONFIG_SYS_SPI_ARGS_SIZE) \
 		"\0" \
 	"splupdate=" \
 		UBOOT_SPL_UPDATE \

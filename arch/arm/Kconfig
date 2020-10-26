@@ -796,6 +796,10 @@ config TARGET_JORNADA
 	bool "Support jornada"
 	select CPU_SA1100
 
+config SC59X
+        bool "sc59x SoC"
+        select CPU_V7
+
 config SC58X
 	bool "sc58x SoC"
 	select CPU_V7
@@ -836,6 +840,8 @@ source "arch/arm/cpu/arm926ejs/orion5x/Kconfig"
 source "arch/arm/cpu/armv7/rmobile/Kconfig"
 
 source "arch/arm/cpu/armv7/s5pc1xx/Kconfig"
+
+source "arch/arm/cpu/armv7/sc59x/Kconfig"
 
 source "arch/arm/cpu/armv7/sc58x/Kconfig"
 

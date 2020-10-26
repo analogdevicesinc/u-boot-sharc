@@ -24,6 +24,7 @@ obj-$(CONFIG_ATMEL_SPI) += atmel_spi.o
 obj-$(CONFIG_BFIN_SPI) += bfin_spi.o
 obj-$(CONFIG_BFIN_SPI6XX) += bfin_spi6xx.o
 obj-$(CONFIG_ADI_SPI3) += adi_spi3.o
+obj-$(CONFIG_SC59X_SPI) += sc59x_spi.o
 obj-$(CONFIG_SC58X_SPI) += sc58x_spi.o
 obj-$(CONFIG_SC57X_SPI) += sc57x_spi.o
 obj-$(CONFIG_CADENCE_QSPI) += cadence_qspi.o cadence_qspi_apb.o

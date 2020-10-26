@@ -8,6 +8,7 @@
 obj-$(CONFIG_MUSB_HCD) += musb_hcd.o musb_core.o
 obj-$(CONFIG_MUSB_UDC) += musb_udc.o musb_core.o
 obj-$(CONFIG_USB_BLACKFIN) += blackfin_usb.o
+obj-$(CONFIG_USB_SC59X) += sc59x.o
 obj-$(CONFIG_USB_SC58X) += sc58x.o
 obj-$(CONFIG_USB_SC57X) += sc57x.o
 obj-$(CONFIG_USB_DAVINCI) += davinci.o

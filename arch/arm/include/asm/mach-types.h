@@ -1113,6 +1113,7 @@ extern unsigned int __machine_arch_type;
 #define MACH_TYPE_SC589_EDGE           4578
 #define MACH_TYPE_SC573_EZKIT          4579
 #define MACH_TYPE_SC589_MINI           4580
+#define MACH_TYPE_SC594_SOM_EZKIT      4581
 
 #ifdef CONFIG_ARCH_EBSA110
 # ifdef machine_arch_type

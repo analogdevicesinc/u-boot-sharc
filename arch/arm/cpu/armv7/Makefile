@@ -55,6 +55,7 @@ obj-$(CONFIG_OMAP44XX) += omap4/
 obj-$(CONFIG_OMAP54XX) += omap5/
 obj-$(CONFIG_RMOBILE) += rmobile/
 obj-$(CONFIG_ARCH_S5PC1XX) += s5pc1xx/
+obj-$(CONFIG_SC59X) += sc59x/
 obj-$(CONFIG_SC58X) += sc58x/
 obj-$(CONFIG_SC57X) += sc57x/
 obj-$(CONFIG_SOCFPGA) += socfpga/

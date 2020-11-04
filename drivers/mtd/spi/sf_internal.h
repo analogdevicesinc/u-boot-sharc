@@ -56,6 +56,7 @@ enum {
 #define SPI_FLASH_CFI_MFR_STMICRO	0x20
 #define SPI_FLASH_CFI_MFR_MACRONIX	0xc2
 #define SPI_FLASH_CFI_MFR_WINBOND	0xef
+#define SPI_FLASH_CFI_MFR_ISSI		0x9d
 
 /* Erase commands */
 #define CMD_ERASE_4K			0x20
@@ -95,6 +96,7 @@ enum {
 #define STATUS_WIP			(1 << 0)
 #define STATUS_QEB_WINSPAN		(1 << 1)
 #define STATUS_QEB_MXIC		(1 << 6)
+#define STATUS_QEB_ISSI		(1 << 6)
 #define STATUS_PEC			(1 << 7)
 
 #ifdef CONFIG_SYS_SPI_ST_ENABLE_WP_PIN

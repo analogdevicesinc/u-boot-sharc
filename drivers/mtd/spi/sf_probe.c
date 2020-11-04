@@ -75,6 +75,28 @@ static int spi_flash_set_qeb_winspan(struct spi_flash *flash)
 }
 #endif
 
+#ifdef CONFIG_SPI_FLASH_ISSI
+static int spi_flash_set_qeb_issi(struct spi_flash *flash)
+{
+	u8 qeb_status;
+	int ret;
+
+	ret = spi_flash_cmd_read_status(flash, &qeb_status);
+	if (ret < 0)
+		return ret;
+
+	if (qeb_status & STATUS_QEB_ISSI) {
+		debug("SF: issi: QEB is already set\n");
+	} else {
+		ret = spi_flash_cmd_write_status(flash, STATUS_QEB_ISSI);
+		if (ret < 0)
+			return ret;
+	}
+
+	return ret;
+}
+#endif
+
 static int spi_flash_set_qeb(struct spi_flash *flash, u8 idcode0)
 {
 	switch (idcode0) {
@@ -91,6 +113,11 @@ static int spi_flash_set_qeb(struct spi_flash *flash, u8 idcode0)
 	case SPI_FLASH_CFI_MFR_STMICRO:
 		debug("SF: QEB is volatile for %02x flash\n", idcode0);
 		return 0;
+#endif
+#ifdef CONFIG_SPI_FLASH_ISSI
+	case SPI_FLASH_CFI_MFR_ISSI:
+		debug("SF: QEB is volatile for %02x flash\n", idcode0);
+		return spi_flash_set_qeb_issi(flash);
 #endif
 	default:
 		printf("SF: Need set QEB func for %02x flash\n", idcode0);

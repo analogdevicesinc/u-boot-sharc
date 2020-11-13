@@ -29,10 +29,13 @@
  * setup stack
  *
  *************************************************************************/
-
 	.globl	reset
-
 reset:
+
+	ldr r4, =0x0000000E
+	ldr r5, =0x31004114
+	str r4, [r5]
+
 	bl	save_boot_params
 	/*
 	 * disable interrupts (FIQ and IRQ), also set the cpu to SVC32 mode,

@@ -132,6 +132,24 @@ static int do_spi_flash_probe(int argc, char * const argv[])
 
 	flash = new->uclass_priv;
 #else
+
+#if defined(CONFIG_SC59X)
+
+	//Flash device fails (reads back zero) if you probe it twice.  Not sure why
+	//This should prevent it from being probed twice
+
+	static bool alreadyProbed = 0;
+
+	if(bus == 2 && cs == 1 && speed == 5000000 && mode == 3){
+		if(alreadyProbed){
+			return 0;
+		}
+		else{
+			alreadyProbed = 1;
+		}
+	}
+#endif
+
 	new = spi_flash_probe(bus, cs, speed, mode);
 	if (!new) {
 		printf("Failed to initialize SPI flash at %u:%u\n", bus, cs);

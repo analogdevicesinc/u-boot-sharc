@@ -16,7 +16,12 @@
 #define CQSPI_STIG_READ			0
 #define CQSPI_STIG_WRITE		1
 #define CQSPI_INDIRECT_READ		2
-#define CQSPI_INDIRECT_WRITE		3
+#define CQSPI_INDIRECT_WRITE	3
+
+#ifdef CONFIG_SC59X
+#define CQSPI_DIRECT_READ		4
+#define CQSPI_DIRECT_WRITE		5
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -217,16 +222,26 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 		if (din && data_bytes) {
 			/* read */
 			/* Use STIG if no address. */
-			if (!CQSPI_IS_ADDR(priv->cmd_len))
+			if (!CQSPI_IS_ADDR(priv->cmd_len)){
 				mode = CQSPI_STIG_READ;
-			else
+			}else{
+				#ifdef CONFIG_SC59X
+				mode = CQSPI_DIRECT_READ;
+				#else
 				mode = CQSPI_INDIRECT_READ;
+				#endif
+			}
 		} else if (dout && !(flags & SPI_XFER_BEGIN)) {
 			/* write */
-			if (!CQSPI_IS_ADDR(priv->cmd_len))
+			if (!CQSPI_IS_ADDR(priv->cmd_len)){
 				mode = CQSPI_STIG_WRITE;
-			else
-				mode = CQSPI_INDIRECT_WRITE;
+			}else{
+				#ifdef CONFIG_SC59X
+				mode = CQSPI_DIRECT_WRITE;
+				#else
+				mode = CQSPI_INDIRECT_READ;
+				#endif
+			}
 		}
 
 		switch (mode) {
@@ -257,6 +272,16 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 				(plat, data_bytes, dout);
 			}
 		break;
+		#ifdef CONFIG_SC59X
+		case CQSPI_DIRECT_WRITE:
+			err = cadence_qspi_direct_write
+				(plat, priv->cmd_len, cmd_buf, data_bytes, dout);
+		break;
+		case CQSPI_DIRECT_READ:
+			err = cadence_qspi_direct_read
+				(plat, priv->cmd_len, cmd_buf, data_bytes, din);
+		break;
+		#endif
 		default:
 			err = -1;
 			break;

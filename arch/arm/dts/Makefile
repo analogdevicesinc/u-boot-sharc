@@ -51,6 +51,8 @@ dtb-$(CONFIG_AM33XX) += am335x-boneblack.dtb
 
 dtb-$(CONFIG_SOCFPGA) += socfpga_cyclone5_socrates.dtb
 
+dtb-$(CONFIG_SC59X) += sc594-som-ezkit.dtb
+
 targets += $(dtb-y)
 
 DTC_FLAGS += -R 4 -p 0x1000

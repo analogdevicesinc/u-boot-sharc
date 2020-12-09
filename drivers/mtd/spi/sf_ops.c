@@ -645,13 +645,13 @@ int spi_flash_cmd_read_ops(struct spi_flash *flash, u32 offset,
 		}
 		spi_xfer(flash->spi, 0, NULL, NULL, SPI_XFER_MMAP);
 /* Edit by acaldwe */
-		memcpy(data, flash->memory_map + offset, len);
-		//u32 memcopy_result = 0xDEADBEEF;
-		//memcopy_result = memcopy_dma(data,flash->memory_map + offset,len);
-		//if(memcopy_result!= 0x00000001)
-		//{
-		//	printf("ADI Memcopy via DMA failure: 0x%.8x\n", memcopy_result);
-		//}
+		//memcpy(data, flash->memory_map + offset, len);
+		u32 memcopy_result = 0xDEADBEEF;
+		memcopy_result = memcopy_dma(data,flash->memory_map + offset,len);
+		if(memcopy_result!= 0x00000001)
+		{
+			printf("ADI Memcopy via DMA failure: 0x%.8x\n", memcopy_result);
+		}
 /* End of edit by acaldwe */
 		spi_xfer(flash->spi, 0, NULL, NULL, SPI_XFER_MMAP_END);
 		spi_release_bus(flash->spi);

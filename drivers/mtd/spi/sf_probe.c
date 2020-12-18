@@ -210,6 +210,19 @@ static int spi_flash_validate_params(struct spi_slave *spi, u8 *idcode,
 		flash->erase_size = flash->sector_size;
 	}
 
+	#ifdef CONFIG_SC59X
+	/* Select quad rx and tx mode for SPI data transfer */
+	/* Driver Model doesn't provide a good way to adjust these,
+	   so do it here for now
+	*/
+	if (ext_jedec == 0x9d60) { 
+		if ( (jedec == 0x601a) ){ /* IS25LP512 */
+			flash->spi->op_mode_rx = SPI_OPM_RX_QOF << 1;
+			flash->spi->op_mode_tx = SPI_OPM_TX_QPP;
+		}
+	}
+	#endif
+
 	/* Look for the fastest read cmd */
 	cmd = fls(params->e_rd_cmd & flash->spi->op_mode_rx);
 	if (cmd) {

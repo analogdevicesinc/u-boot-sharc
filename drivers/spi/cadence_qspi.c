@@ -252,9 +252,23 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 
 		break;
 		case CQSPI_STIG_WRITE:
+		{
+
+			static int octalDDR = 0;
+			if(!octalDDR){
+				octalDDR = 1;
+				printf("Set VCR to Octal DDR without DQS\r\n");
+				uint8_t cmd[1] = {0x81};
+				uint8_t data[1] = {0xC7};
+				cadence_qspi_apb_command_write(base,
+								1, cmd,
+								1, data);
+			}
+
 			err = cadence_qspi_apb_command_write(base,
 				priv->cmd_len, cmd_buf,
 				data_bytes, dout);
+		}
 		break;
 		case CQSPI_INDIRECT_READ:
 			err = cadence_qspi_apb_indirect_read_setup(plat,

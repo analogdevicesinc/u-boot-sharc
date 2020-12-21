@@ -215,7 +215,7 @@ static int spi_flash_validate_params(struct spi_slave *spi, u8 *idcode,
 	/* Driver Model doesn't provide a good way to adjust these,
 	   so do it here for now
 	*/
-	if (ext_jedec == 0x9d60) { 
+	if (ext_jedec == 0x9d60) {
 		if ( (jedec == 0x601a) ){ /* IS25LP512 */
 			flash->spi->op_mode_rx = SPI_OPM_RX_QOF << 1;
 			flash->spi->op_mode_tx = SPI_OPM_TX_QPP;

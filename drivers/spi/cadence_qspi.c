@@ -183,6 +183,11 @@ static int cadence_spi_set_mode(struct udevice *bus, uint mode)
 	return 0;
 }
 
+#ifdef CONFIG_SC59X
+	static uint8_t enable_4byte[1] = {0xB7};
+	static uint8_t disable_4byte[1] = {0xE9};
+#endif
+
 static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 			    const void *dout, void *din, unsigned long flags)
 {
@@ -246,13 +251,24 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 
 		switch (mode) {
 		case CQSPI_STIG_READ:
+		{
+#ifdef CONFIG_SC59X	
+			if(priv->cmd_len == 5){
+				cadence_qspi_apb_command_write(plat->regbase, 1, enable_4byte, 0, NULL);
+			}else if(priv->cmd_len == 4){
+				cadence_qspi_apb_command_write(plat->regbase, 1, disable_4byte, 0, NULL);
+			}
+#endif
 			err = cadence_qspi_apb_command_read(
 				base, priv->cmd_len, cmd_buf,
 				data_bytes, din);
 
+
+		}
 		break;
 		case CQSPI_STIG_WRITE:
 		{
+#ifdef CONFIG_SC59X			
 			static int octalDDR = 0;
 			if(!octalDDR){
 				octalDDR = 1;
@@ -263,6 +279,13 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 								1, cmd,
 								1, data);
 			}
+
+			if(priv->cmd_len == 5){
+				cadence_qspi_apb_command_write(plat->regbase, 1, enable_4byte, 0, NULL);
+			}else if(priv->cmd_len == 4){
+				cadence_qspi_apb_command_write(plat->regbase, 1, disable_4byte, 0, NULL);
+			}
+#endif
 
 			err = cadence_qspi_apb_command_write(base,
 				priv->cmd_len, cmd_buf,
@@ -285,16 +308,28 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 				(plat, data_bytes, dout);
 			}
 		break;
-		#ifdef CONFIG_SC59X
+#ifdef CONFIG_SC59X
 		case CQSPI_DIRECT_WRITE:
+			if(priv->cmd_len == 5){
+				cadence_qspi_apb_command_write(plat->regbase, 1, enable_4byte, 0, NULL);
+			}else if(priv->cmd_len == 4){
+				cadence_qspi_apb_command_write(plat->regbase, 1, disable_4byte, 0, NULL);
+			}
+
 			err = cadence_qspi_direct_write
 				(plat, priv->cmd_len, cmd_buf, data_bytes, dout);
 		break;
 		case CQSPI_DIRECT_READ:
+			if(priv->cmd_len == 5){
+				cadence_qspi_apb_command_write(plat->regbase, 1, enable_4byte, 0, NULL);
+			}else if(priv->cmd_len == 4){
+				cadence_qspi_apb_command_write(plat->regbase, 1, disable_4byte, 0, NULL);
+			}
+
 			err = cadence_qspi_direct_read
 				(plat, priv->cmd_len, cmd_buf, data_bytes, din);
 		break;
-		#endif
+#endif
 		default:
 			err = -1;
 			break;

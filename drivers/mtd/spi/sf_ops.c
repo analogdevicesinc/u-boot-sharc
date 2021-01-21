@@ -279,18 +279,21 @@ static u32 memcopy_dma(void *data, void * flash_source, size_t len)
 
 /* End of edits by acaldwe */
 
-
-
-
-
-
-
-static void spi_flash_addr(u32 addr, u8 *cmd)
+static void spi_flash_addr_3b(u32 addr, u8 *cmd)
 {
 	/* cmd[0] is actual command */
 	cmd[1] = addr >> 16;
 	cmd[2] = addr >> 8;
 	cmd[3] = addr >> 0;
+}
+
+static void spi_flash_addr_4b(u32 addr, u8 *cmd)
+{
+  /* cmd[0] is actual command */
+  cmd[1] = addr >> 24;  
+  cmd[2] = addr >> 16;
+  cmd[3] = addr >> 8;
+  cmd[4] = addr >> 0;
 }
 
 int spi_flash_cmd_read_status(struct spi_flash *flash, u8 *rs)
@@ -516,7 +519,7 @@ int spi_flash_write_common(struct spi_flash *flash, const u8 *cmd,
 int spi_flash_cmd_erase_ops(struct spi_flash *flash, u32 offset, size_t len)
 {
 	u32 erase_size, erase_addr;
-	u8 cmd[SPI_FLASH_CMD_LEN];
+	u8 cmd[SPI_FLASH_CMD_LEN_4B];
 	int ret = -1;
 
 	erase_size = flash->erase_size;
@@ -538,12 +541,24 @@ int spi_flash_cmd_erase_ops(struct spi_flash *flash, u32 offset, size_t len)
 		if (ret < 0)
 			return ret;
 #endif
-		spi_flash_addr(erase_addr, cmd);
+
+		if(strcmp(flash->name, "IS25LX256") == 0){
+			spi_flash_addr_4b(erase_addr, cmd);
+		}else{
+			spi_flash_addr_3b(erase_addr, cmd);
+		}
 
 		debug("SF: erase %2x %2x %2x %2x (%x)\n", cmd[0], cmd[1],
 		      cmd[2], cmd[3], erase_addr);
 
-		ret = spi_flash_write_common(flash, cmd, sizeof(cmd), NULL, 0);
+		int commandSize;
+		if(strcmp(flash->name, "IS25LX256") == 0){
+			commandSize = SPI_FLASH_CMD_LEN_4B;
+		}else{
+			commandSize = SPI_FLASH_CMD_LEN_3B;
+		}
+
+		ret = spi_flash_write_common(flash, cmd, commandSize, NULL, 0);
 		if (ret < 0) {
 			debug("SF: erase failed\n");
 			break;
@@ -562,7 +577,7 @@ int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
 	unsigned long byte_addr, page_size;
 	u32 write_addr;
 	size_t chunk_len, actual;
-	u8 cmd[SPI_FLASH_CMD_LEN];
+	u8 cmd[SPI_FLASH_CMD_LEN_4B];
 	int ret = -1;
 
 	page_size = flash->page_size;
@@ -587,10 +602,21 @@ int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
 			chunk_len = min(chunk_len,
 					(size_t)flash->spi->max_write_size);
 
-		spi_flash_addr(write_addr, cmd);
+		if(strcmp(flash->name, "IS25LX256") == 0){
+			spi_flash_addr_4b(write_addr, cmd);
+		}else{
+			spi_flash_addr_3b(write_addr, cmd);
+		}
 
 		debug("SF: 0x%p => cmd = { 0x%02x 0x%02x%02x%02x } chunk_len = %zu\n",
 		      buf + actual, cmd[0], cmd[1], cmd[2], cmd[3], chunk_len);
+
+		int commandSize;
+		if(strcmp(flash->name, "IS25LX256") == 0){
+			commandSize = SPI_FLASH_CMD_LEN_4B;
+		}else{
+			commandSize = SPI_FLASH_CMD_LEN_3B;
+		}
 
 		ret = spi_flash_write_common(flash, cmd, sizeof(cmd),
 					buf + actual, chunk_len);
@@ -658,7 +684,14 @@ int spi_flash_cmd_read_ops(struct spi_flash *flash, u32 offset,
 		return 0;
 	}
 
-	cmdsz = SPI_FLASH_CMD_LEN + flash->dummy_byte;
+	int commandSize;
+	if(strcmp(flash->name, "IS25LX256") == 0){
+		commandSize = SPI_FLASH_CMD_LEN_3B;
+	}else{
+		commandSize = SPI_FLASH_CMD_LEN_4B;
+	}
+
+	cmdsz = commandSize + flash->dummy_byte;
 	cmd = calloc(1, cmdsz);
 	if (!cmd) {
 		debug("SF: Failed to allocate cmd\n");
@@ -685,7 +718,11 @@ int spi_flash_cmd_read_ops(struct spi_flash *flash, u32 offset,
 		else
 			read_len = remain_len;
 
-		spi_flash_addr(read_addr, cmd);
+		if(strcmp(flash->name, "IS25LX256") == 0){
+			spi_flash_addr_4b(read_addr, cmd);
+		}else{
+			spi_flash_addr_3b(read_addr, cmd);
+		}
 
 		ret = spi_flash_read_common(flash, cmd, cmdsz, data, read_len);
 		if (ret < 0) {

@@ -225,6 +225,11 @@ int saveenv(void)
 	int	ret = 1;
 	env_t	env_new;
 
+#ifdef CONFIG_SC59X
+	//Reprobe the flash environment every time saveenv is called
+	env_flash = NULL;
+#endif
+
 	if (!env_flash) {
 		env_flash = spi_flash_probe(CONFIG_ENV_SPI_BUS,
 			CONFIG_ENV_SPI_CS,

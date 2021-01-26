@@ -930,7 +930,7 @@ int cadence_qspi_direct_read(struct cadence_spi_platdata *plat,
     /* Configure the address mode of flash */
 	curVal = readl(plat->regbase + CQSPI_REG_SIZE);
 	curVal &= ~BITM_OSPI_DSCTL_ADDRSZ;
-	curVal |= (((uint32_t)(3U)-1U) << BITP_OSPI_DSCTL_ADDRSZ) & BITM_OSPI_DSCTL_ADDRSZ;
+	curVal |= (((uint32_t)(4U)-1U) << BITP_OSPI_DSCTL_ADDRSZ) & BITM_OSPI_DSCTL_ADDRSZ;
 	writel(curVal, plat->regbase + CQSPI_REG_SIZE);
 
     /* Configure the modedata value */
@@ -997,8 +997,7 @@ int cadence_qspi_direct_read(struct cadence_spi_platdata *plat,
     curVal |= BITM_OSPI_CTL_DACEN;
     writel(curVal, plat->regbase + CQSPI_REG_CONFIG);
 
-	addr_value = cadence_qspi_apb_cmd2addr(&cmdbuf[1], addr_bytes);
-
+    addr_value = cadence_qspi_apb_cmd2addr(&cmdbuf[1], 4);
 
 #ifdef ADI_OCTAL 
 	/* Update the DRIR register here to support Octal IO Read mode - Not supported by existing driver */
@@ -1009,16 +1008,16 @@ int cadence_qspi_direct_read(struct cadence_spi_platdata *plat,
 
     /* Perform the transfer */
     uint32_t count = 0;
-    uint64_t *pReadBuffer = rxbuf;
-    uint64_t *pFlashAddress = (uint64_t *)OSPI0_MMAP_ADDRESS+addr_value;
+    uint8_t *pReadBuffer = rxbuf;
+    uint8_t *pFlashAddress = (uint8_t *)OSPI0_MMAP_ADDRESS+addr_value;
 
-    for (count = 0U; count < rxlen/8; count++)
+    for (count = 0U; count < rxlen; count++)
     {
-        *(uint64_t*)pReadBuffer++ = *(uint64_t*)pFlashAddress++;
+        *(uint8_t*)pReadBuffer++ = *(uint8_t*)pFlashAddress++;
         //while(!CQSPI_REG_IS_IDLE(plat->regbase));
     }
 
-	return 0;
+    return 0;
 }
 
 int cadence_qspi_direct_write(struct cadence_spi_platdata *plat,
@@ -1036,7 +1035,7 @@ int cadence_qspi_direct_write(struct cadence_spi_platdata *plat,
     /* Configure the address mode of flash */
 	curVal = readl(plat->regbase + CQSPI_REG_SIZE);
 	curVal &= ~BITM_OSPI_DSCTL_ADDRSZ;
-	curVal |= (((uint32_t)(3U)-1U) << BITP_OSPI_DSCTL_ADDRSZ) & BITM_OSPI_DSCTL_ADDRSZ;
+	curVal |= (((uint32_t)(4U)-1U) << BITP_OSPI_DSCTL_ADDRSZ) & BITM_OSPI_DSCTL_ADDRSZ;
 	writel(curVal, plat->regbase + CQSPI_REG_SIZE);
 
     /* Configure the modedata value */
@@ -1094,7 +1093,7 @@ int cadence_qspi_direct_write(struct cadence_spi_platdata *plat,
     curVal |= BITM_OSPI_CTL_DACEN;
     writel(curVal, plat->regbase + CQSPI_REG_CONFIG);
 
-	addr_value = cadence_qspi_apb_cmd2addr(&cmdbuf[1], cmdlen >= 5 ? 4 : 3);
+    addr_value = cadence_qspi_apb_cmd2addr(&cmdbuf[1], 4);
 
     /* Perform the transfer */
     uint32_t count = 0;
@@ -1107,7 +1106,7 @@ int cadence_qspi_direct_write(struct cadence_spi_platdata *plat,
         while(!CQSPI_REG_IS_IDLE(plat->regbase));
     }
 
-	return 0;
+    return 0;
 }
 
 #endif

@@ -1008,14 +1008,25 @@ int cadence_qspi_direct_read(struct cadence_spi_platdata *plat,
 
     /* Perform the transfer */
     uint32_t count = 0;
-    uint8_t *pReadBuffer = rxbuf;
-    uint8_t *pFlashAddress = (uint8_t *)OSPI0_MMAP_ADDRESS+addr_value;
+    uint64_t *pReadBuffer = rxbuf;
+    uint64_t *pFlashAddress = (uint64_t *)(OSPI0_MMAP_ADDRESS+addr_value);
+    uint8_t *pReadBuffer8;
+    uint8_t *pFlashAddress8;
 
-    for (count = 0U; count < rxlen; count++)
+    for (count = 0U; count < (rxlen / 8); count++)
     {
-        *(uint8_t*)pReadBuffer++ = *(uint8_t*)pFlashAddress++;
-        //while(!CQSPI_REG_IS_IDLE(plat->regbase));
+        *(uint64_t*)pReadBuffer++ = *(uint64_t*)pFlashAddress++;
     }
+
+    if(rxlen % 8){
+		pReadBuffer8 = (uint8_t*)pReadBuffer;
+		pFlashAddress8 = (uint8_t*)pFlashAddress;
+
+	    for (count = 0U; count < (rxlen % 8); count++)
+	    {
+	        *(uint8_t*)pReadBuffer8++ = *(uint8_t*)pFlashAddress8++;
+	    }
+	}
 
     return 0;
 }

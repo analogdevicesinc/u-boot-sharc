@@ -136,6 +136,19 @@
 			__stringify(CONFIG_BAUDRATE) " "\
 		"mem=" CONFIG_LINUX_MEMSIZE
 
+#if defined(CONFIG_SPL_OS_BOOT)
+#define CONFIG_SPL_BOOTARGS	\
+	"root=" CONFIG_BOOTARGS_ROOT_NAND " " \
+	"rootfstype=jffs2 " \
+	"clkin_hz=" __stringify(CONFIG_CLKIN_HZ) " " \
+	CONFIG_BOOTARGS_VIDEO \
+	"console=ttySC" __stringify(CONFIG_UART_CONSOLE) "," \
+			__stringify(CONFIG_BAUDRATE) " "\
+		"mem=" CONFIG_LINUX_MEMSIZE
+# else
+#  define CONFIG_SPL_BOOTARGS
+# endif
+
 #if defined(CONFIG_CMD_NET)
 # define UBOOT_ENV_FILE "u-boot-" CONFIG_SYS_BOARD ".ldr"
 # if (CONFIG_SC_BOOT_MODE == SC_BOOT_SPI_MASTER)
@@ -144,12 +157,58 @@
 #  endif
 #  define UBOOT_ENV_UPDATE \
 		"sf probe " __stringify(CONFIG_SC_BOOT_SPI_BUS) ":" \
-		__stringify(CONFIG_SC_BOOT_SPI_SSEL) ";" \
+		__stringify(CONFIG_SC_BOOT_SPI_SSEL) " " \
+		__stringify(CONFIG_ENV_SPI_MAX_HZ) ";" \
 		"sf erase 0 " __stringify(CONFIG_SPI_IMG_SIZE) ";" \
 		"sf write ${loadaddr} 0 ${filesize}"
 # else
 #  define UBOOT_ENV_UPDATE
 # endif
+
+# if defined(CONFIG_SPL_SPI_LOAD)
+#  define UBOOT_SPL_UPDATE \
+		"tftp ${loadaddr} u-boot-spl.ldr;" \
+		"sf probe " __stringify(CONFIG_SC_BOOT_SPI_BUS) ":" \
+		__stringify(CONFIG_SC_BOOT_SPI_SSEL) " " \
+		__stringify(CONFIG_ENV_SPI_MAX_HZ) ";" \
+		"sf erase " __stringify(CONFIG_ENV_OFFSET) " " \
+		__stringify(CONFIG_ENV_SIZE) ";" \
+		"sf erase 0 +${filesize};" \
+		"sf write ${loadaddr} 0 ${filesize};" \
+		"tftp ${loadaddr} u-boot-" CONFIG_SYS_BOARD ".bin;" \
+		"sf erase " __stringify(CONFIG_SYS_SPI_U_BOOT_OFFS) " " \
+		"+${filesize};" \
+		"sf write ${loadaddr} " __stringify(CONFIG_SYS_SPI_U_BOOT_OFFS) " " \
+		"${filesize};"
+#  if defined(CONFIG_SPL_OS_BOOT)
+#   define UBOOT_SPL_EXPORT \
+		"tftp ${loadaddr} ${ramfile};" \
+		"tftp ${dtbaddr} ${dtbfile};" \
+		"sf probe " __stringify(CONFIG_SC_BOOT_SPI_BUS) ":" \
+		__stringify(CONFIG_SC_BOOT_SPI_SSEL) " " \
+		__stringify(CONFIG_ENV_SPI_MAX_HZ) ";" \
+		"sf erase " __stringify(CONFIG_SYS_SPI_ARGS_OFFS) " " \
+		__stringify(CONFIG_SYS_SPI_ARGS_SIZE) ";" \
+		"spl export fdt ${loadaddr} - ${dtbaddr};"
+#   define KERNEL_IMAGE_UPDATE \
+		"tftp ${loadaddr} ${ramfile};" \
+		"sf probe " __stringify(CONFIG_SC_BOOT_SPI_BUS) ":" \
+		__stringify(CONFIG_SC_BOOT_SPI_SSEL) " " \
+		__stringify(CONFIG_ENV_SPI_MAX_HZ) ";" \
+		"sf erase " __stringify(CONFIG_SYS_SPI_KERNEL_OFFS) " +${filesize};" \
+		"sf write ${loadaddr} " __stringify(CONFIG_SYS_SPI_KERNEL_OFFS) " ${filesize};" \
+		"tftp ${dtbaddr} ${dtbfile};" \
+		"sf erase " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " +${filesize};" \
+		"sf write ${dtbaddr} " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " ${filesize};"
+
+
+#  else
+#   define UBOOT_SPL_EXPORT
+#  endif /* defined(CONFIG_SPL_OS_BOOT)  */
+# else
+#  define UBOOT_SPL_UPDATE
+#  define UBOOT_SPL_EXPORT
+# endif /* defined(CONFIG_SPL_SPI_LOAD)  */
 # ifdef CONFIG_NETCONSOLE
 #  define NETCONSOLE_ENV \
 	"nc=" \
@@ -174,8 +233,8 @@
 		   "${hostname}:eth0:off" \
 		"\0" \
 	\
-	"ramfile=zImage\0" \
-	"initramfile=ramdisk.cpio.xz.u-boot\0" \
+	"ramfile=uImage\0" \
+	"initramfile=ramdisk.cpio.gz.u-boot\0" \
 	"initramaddr=" INITRAMADDR "\0" \
 	"dtbfile=" CONFIG_DTBNAME "\0" \
 	"dtbaddr=" CONFIG_DTBLOADADDR "\0" \
@@ -190,24 +249,26 @@
 		"ext2load mmc 0:1 ${initramaddr} /boot/${initramfile};" \
 		"run sdcardargs;" \
 		"run addip;" \
-		"bootz ${loadaddr} ${initramaddr} ${dtbaddr}" \
+		"bootm ${loadaddr} ${initramaddr} ${dtbaddr}" \
 		"\0" \
 	\
 	"ramboot=" \
 		"tftp ${loadaddr} ${ramfile};" \
 		"tftp ${dtbaddr} ${dtbfile};" \
-		"tftp ${initramaddr} ${initramfile};" \
 		"run ramargs;" \
 		"run addip;" \
-		"bootz ${loadaddr} ${initramaddr} ${dtbaddr}" \
+		"bootm ${loadaddr} - ${dtbaddr}" \
 		"\0" \
 	\
 	"norboot=" \
-		"tftp ${loadaddr} ${ramfile};" \
-		"tftp ${dtbaddr} ${dtbfile};" \
+		"sf probe " __stringify(CONFIG_SC_BOOT_SPI_BUS) ":" \
+		__stringify(CONFIG_SC_BOOT_SPI_SSEL) " " \
+		__stringify(CONFIG_ENV_SPI_MAX_HZ) ";" \
+		"sf read  ${loadaddr} " __stringify(CONFIG_SYS_SPI_KERNEL_OFFS) " " "0xa00000;" \
+		"sf read  ${dtbaddr} " __stringify(CONFIG_SYS_SPI_DTB_OFFS) " " __stringify(CONFIG_SYS_SPI_DTB_SIZE) ";" \
 		"run ramargs;" \
 		"run addip;" \
-		"bootz ${loadaddr} - ${dtbaddr}" \
+		"bootm ${loadaddr} - ${dtbaddr}" \
 		"\0" \
 	\
 	"sdcardboot=" \
@@ -216,16 +277,36 @@
 		"ext2load mmc 0:1 ${loadaddr} /boot/${ramfile};" \
 		"ext2load mmc 0:1 ${dtbaddr} /boot/${dtbfile};" \
 		"run sdcardargs;" \
-		"bootz ${loadaddr} - ${dtbaddr}" \
+		"bootm ${loadaddr} - ${dtbaddr}" \
 		"\0" \
 	\
-	"nfsfile=zImage\0" \
+	"nfsfile=uImage\0" \
 	"nfsboot=" \
 		"tftp ${loadaddr} ${nfsfile};" \
 		"tftp ${dtbaddr} ${dtbfile};" \
 		"run nfsargs;" \
 		"run addip;" \
-		"bootz ${loadaddr} - ${dtbaddr}" \
+		"bootm ${loadaddr} - ${dtbaddr}" \
+		"\0" \
+	"kupdate=" \
+		KERNEL_IMAGE_UPDATE \
+		"\0" \
+	"splargs=set bootargs " CONFIG_SPL_BOOTARGS " " \
+		"ip=${ipaddr}:${serverip}:${gatewayip}:${netmask}:" \
+		"${hostname}:eth0:off " \
+		"quiet lpj="  __stringify(CONFIG_LINUX_LPJ) \
+		"\0" \
+	"splexport=" \
+		"run splargs;" \
+		UBOOT_SPL_EXPORT \
+		"\0" \
+	"splargs_update=" \
+		"sf write " __stringify(CONFIG_SYS_SPL_ARGS_ADDR) " " \
+		__stringify(CONFIG_SYS_SPI_ARGS_OFFS) " " \
+		__stringify(CONFIG_SYS_SPI_ARGS_SIZE) \
+		"\0" \
+	"splupdate=" \
+		UBOOT_SPL_UPDATE \
 		"\0"
 #else
 # define NETWORK_ENV_SETTINGS

@@ -146,6 +146,18 @@ endif
 boot.bin: $(obj)/u-boot-spl.bin
 	$(call if_changed,mkimage)
 
+u-boot-spl.ldr:	$(obj)/u-boot-spl
+		$(CREATE_LDR_ENV)
+		$(LDR) -T $(CONFIG_CPU) -c $@ $< $(LDR_FLAGS)
+		$(BOARD_SIZE_CHECK)
+
+OBJCOPYFLAGS_u-boot-spl.ldr.hex := -I binary -O ihex
+
+OBJCOPYFLAGS_u-boot-spl.ldr.srec := -I binary -O srec
+
+u-boot-spl.ldr.hex u-boot-spl.ldr.srec: u-boot-spl.ldr FORCE
+	$(call if_changed,objcopy)
+
 ALL-y	+= $(obj)/$(SPL_BIN).bin
 
 ifdef CONFIG_SAMSUNG

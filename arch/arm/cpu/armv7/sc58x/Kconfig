@@ -15,7 +15,6 @@ config TARGET_SC589_MINI
 endchoice
 
 config SC_BOOT_MODE
-	int "SC58X boot mode select"
 	default 1
 	range 0 7
 	help

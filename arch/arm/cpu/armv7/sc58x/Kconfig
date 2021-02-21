@@ -5,16 +5,17 @@ choice
 
 config TARGET_SC589_EZKIT
 	bool "Support sc589 EZkit"
-	select SUPPORT_SPL
 
 config TARGET_SC584_EZKIT
 	bool "Support sc584 EZkit"
 
 config TARGET_SC589_MINI
 	bool "Support sc589 Mini Board"
+
 endchoice
 
 config SC_BOOT_MODE
+	int "SC58X boot mode select"
 	default 1
 	range 0 7
 	help

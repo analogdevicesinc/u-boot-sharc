@@ -10,7 +10,6 @@
 #include <common.h>
 #include <asm/errno.h>
 #include <asm/gpio.h>
-#include <asm/io.h>
 
 #define RESOURCE_LABEL_SIZE	16
 
@@ -92,12 +91,12 @@ inline void portmux_setup(unsigned short per)
 	u16 ident = P_IDENT(per);
 	u16 function = P_FUNCT2MUX(per);
 
-	pmux = readl(gpio_array[gpio_bank(ident)]->port_mux);
+	pmux = gpio_array[gpio_bank(ident)]->port_mux;
 
 	pmux &= ~(0x3 << (2 * gpio_sub_n(ident)));
 	pmux |= (function & 0x3) << (2 * gpio_sub_n(ident));
 
-	writel(pmux, gpio_array[gpio_bank(ident)]->port_mux);
+	gpio_array[gpio_bank(ident)]->port_mux = pmux;
 }
 
 inline u16 get_portmux(unsigned short per)

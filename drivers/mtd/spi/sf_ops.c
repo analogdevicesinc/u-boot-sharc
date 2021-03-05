@@ -686,9 +686,9 @@ int spi_flash_cmd_read_ops(struct spi_flash *flash, u32 offset,
 
 	int commandSize;
 	if(strcmp(flash->name, "IS25LX256") == 0){
-		commandSize = SPI_FLASH_CMD_LEN_3B;
-	}else{
 		commandSize = SPI_FLASH_CMD_LEN_4B;
+	}else{
+		commandSize = SPI_FLASH_CMD_LEN_3B;
 	}
 
 	cmdsz = commandSize + flash->dummy_byte;

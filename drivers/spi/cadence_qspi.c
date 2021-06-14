@@ -249,6 +249,22 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 			}
 		}
 
+#ifdef CONFIG_SC59X
+		static int octalDDR = 0;
+		if(!octalDDR){
+			octalDDR = 1;
+			printf("Set VCR to Octal DDR without DQS\r\n");
+			uint8_t cmd[1] = {0x81};
+			uint8_t data[1] = {0xC7};
+			cadence_qspi_apb_command_write(base,
+							1, cmd,
+							1, data);
+
+			//Enter 4 byte addressing mode, by default as well
+			cadence_qspi_apb_command_write(plat->regbase, 1, enable_4byte, 0, NULL);
+		}
+#endif
+
 		switch (mode) {
 		case CQSPI_STIG_READ:
 		{
@@ -269,17 +285,6 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 		case CQSPI_STIG_WRITE:
 		{
 #ifdef CONFIG_SC59X			
-			static int octalDDR = 0;
-			if(!octalDDR){
-				octalDDR = 1;
-				printf("Set VCR to Octal DDR without DQS\r\n");
-				uint8_t cmd[1] = {0x81};
-				uint8_t data[1] = {0xC7};
-				cadence_qspi_apb_command_write(base,
-								1, cmd,
-								1, data);
-			}
-
 			if(priv->cmd_len == 5){
 				cadence_qspi_apb_command_write(plat->regbase, 1, enable_4byte, 0, NULL);
 			}else if(priv->cmd_len == 4){
